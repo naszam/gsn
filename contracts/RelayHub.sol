@@ -159,6 +159,9 @@ contract RelayHub is IRelayHub {
         bytes retData;
     }
 
+    //maximum numeric value. larger above any practical reasons, and won't cause overflows in calculations.
+    uint private constant MAXINT = uint96(-1);
+
     function relayCall(
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
@@ -181,6 +184,8 @@ contract RelayHub is IRelayHub {
         );
         require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
         require(externalGasLimit <= block.gaslimit, "Impossible gas limit");
+
+        require(relayRequest.relayData.baseRelayFee<MAXINT && relayRequest.relayData.pctRelayFee < MAXINT, "Invalid fees");
 
         (vars.gasLimits, vars.maxPossibleGas) =
              verifyGasLimits(relayRequest, externalGasLimit);
@@ -360,7 +365,7 @@ contract RelayHub is IRelayHub {
     }
 
     function calculateCharge(uint256 gasUsed, GsnTypes.RelayData calldata relayData) public override virtual view returns (uint256) {
-        return relayData.baseRelayFee.add((gasUsed.mul(relayData.gasPrice).mul(relayData.pctRelayFee.add(100))).div(100));
+        return relayData.baseRelayFee + (gasUsed * relayData.gasPrice * (100 + relayData.pctRelayFee)) / 100;
     }
 
     modifier penalizerOnly () {
